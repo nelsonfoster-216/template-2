@@ -1,48 +1,106 @@
-import Link from "next/link";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { fal } from '@fal-ai/client';
+import Navbar from '@/components/Navbar';
+import ImagePromptInput from '@/components/ImagePromptInput';
+import ImageGrid from '@/components/ImageGrid';
+import LoadingIndicator from '@/components/LoadingIndicator';
+import InfoButton from '@/components/InfoButton';
+import AboutSection from '@/components/AboutSection';
+
+// Configure FAL client with the proxy URL
+fal.config({
+  proxyUrl: '/api/fal/proxy',
+});
+
+// Define the type for FastSdxl output based on the API documentation
+interface FastSdxlOutput {
+  images: Array<{ url: string }>;
+  // Add other properties as needed
+}
 
 export default function Home() {
+  const [images, setImages] = useState<string[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handlePromptSubmit = async (prompt: string) => {
+    setIsGenerating(true);
+    setHasSubmitted(true);
+    setImages([]); // Clear any previous images
+    setError(null); // Clear any previous errors
+    
+    try {
+      console.log("Generating images with prompt:", prompt);
+      // Generate 4 images in parallel
+      const imagePromises = Array(4).fill(null).map(async () => {
+        const result = await fal.subscribe('fal-ai/fast-sdxl', {
+          input: {
+            prompt: `${prompt} - photorealistic, 8k resolution, cinematic lighting`,
+            negative_prompt: 'low quality, blurry, distorted, deformed',
+            image_size: 'square_hd',
+            num_inference_steps: 25
+          }
+        });
+        
+        console.log("FAL response:", result);
+        // Access the data property which contains the actual response
+        const response = result.data as FastSdxlOutput;
+        return response.images[0].url;
+      });
+      
+      // Wait for all images to be generated
+      const generatedImages = await Promise.all(imagePromises);
+      console.log("Generated images:", generatedImages);
+      setImages(generatedImages);
+    } catch (error) {
+      console.error('Error generating images:', error);
+      setError("Failed to generate images. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-8">
-      <div>
-        <h2 className="text-2xl font-semibold text-center border p-4 font-mono rounded-md">
-          Get started by choosing a template path from the /paths/ folder.
-        </h2>
-      </div>
-      <div>
-        <h1 className="text-6xl font-bold text-center">Make anything you imagine 🪄</h1>
-        <h2 className="text-2xl text-center font-light text-gray-500 pt-4">
-          This whole page will be replaced when you run your template path.
-        </h2>
-      </div>
-      <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="border rounded-lg p-6 hover:bg-gray-100 transition-colors">
-          <h3 className="text-xl font-semibold">AI Chat App</h3>
-          <p className="mt-2 text-sm text-gray-600">
-            An intelligent conversational app powered by AI models, featuring real-time responses
-            and seamless integration with Next.js and various AI providers.
-          </p>
+    <div className="min-h-screen flex flex-col bg-[url('https://images.unsplash.com/photo-1543722530-d2c3201371e7')] bg-cover bg-fixed bg-center text-white">
+      <Navbar />
+      {/* InfoButton hidden for now */}
+      <AboutSection />
+      
+      <main className="flex-grow container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <ImagePromptInput onSubmit={handlePromptSubmit} />
+          
+          <div className="mt-8">
+            {isGenerating && (
+              <div className="text-center mb-6">
+                <p className="text-lg text-gray-100">Generating your images...</p>
+                <LoadingIndicator />
+              </div>
+            )}
+            
+            {error && (
+              <div className="text-center mb-6">
+                <p className="text-lg text-red-400">{error}</p>
+              </div>
+            )}
+            
+            <ImageGrid 
+              images={images} 
+              isGenerating={isGenerating} 
+              hasSubmitted={hasSubmitted} 
+            />
+          </div>
         </div>
-        <div className="border rounded-lg p-6 hover:bg-gray-100 transition-colors">
-          <h3 className="text-xl font-semibold">AI Image Generation App</h3>
-          <p className="mt-2 text-sm text-gray-600">
-            Create images from text prompts using AI, powered by the Replicate API and Next.js.
-          </p>
+      </main>
+      
+      <footer className="bg-slate-800 bg-opacity-80 py-4 text-center text-white text-sm">
+        <div className="container mx-auto px-4">
+          <p>Made with robots and soul by Nelson Foster, Co-Founder and CEO, Prokofa Solutions.</p>
         </div>
-        <div className="border rounded-lg p-6 hover:bg-gray-100 transition-colors">
-          <h3 className="text-xl font-semibold">Social Media App</h3>
-          <p className="mt-2 text-sm text-gray-600">
-            A feature-rich social platform with user profiles, posts, and interactions using
-            Firebase and Next.js.
-          </p>
-        </div>
-        <div className="border rounded-lg p-6 hover:bg-gray-100 transition-colors">
-          <h3 className="text-xl font-semibold">Voice Notes App</h3>
-          <p className="mt-2 text-sm text-gray-600">
-            A voice-based note-taking app with real-time transcription using Deepgram API, 
-            Firebase integration for storage, and a clean, simple interface built with Next.js.
-          </p>
-        </div>
-      </div>
-    </main>
+      </footer>
+    </div>
   );
 }

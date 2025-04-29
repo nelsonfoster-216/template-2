@@ -4,8 +4,9 @@
 
 :root {
   --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --background-start-rgb: 245, 247, 250;
+  --background-end-rgb: 240, 242, 245;
+  --dot-color: 210, 210, 210;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,12 +19,14 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background-color: rgb(var(--background-start-rgb));
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(var(--dot-color), 0.4) 1px,
+    transparent 0
+  );
+  background-size: 20px 20px;
+  min-height: 100vh;
 }
 
 @layer utilities {
