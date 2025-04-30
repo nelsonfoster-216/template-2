@@ -3,9 +3,11 @@ frontend:
   phases:
     preBuild:
       commands:
+        - export NODE_TLS_REJECT_UNAUTHORIZED=0
         - npm ci --legacy-peer-deps
     build:
       commands:
+        - export NODE_TLS_REJECT_UNAUTHORIZED=0
         - npm run build
   artifacts:
     baseDirectory: .next
