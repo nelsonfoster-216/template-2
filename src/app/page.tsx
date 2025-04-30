@@ -25,34 +25,6 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // This will allow us to check if the API connection works at all
-  const [apiStatus, setApiStatus] = useState<'checking' | 'working' | 'error' | null>(null);
-  
-  useEffect(() => {
-    // Check if the API is accessible when the component mounts
-    checkApiConnection();
-  }, []);
-  
-  const checkApiConnection = async () => {
-    setApiStatus('checking');
-    try {
-      // Simple fetch to verify the proxy works
-      const response = await fetch('/api/fal/proxy');
-      
-      if (response.ok) {
-        console.log('FAL API connection test successful');
-        setApiStatus('working');
-      } else {
-        const errorText = await response.text();
-        console.error('FAL API connection test failed:', errorText);
-        setApiStatus('error');
-      }
-    } catch (error) {
-      console.error('Error checking FAL API connection:', error);
-      setApiStatus('error');
-    }
-  };
 
   const handlePromptSubmit = async (prompt: string) => {
     setIsGenerating(true);
@@ -61,53 +33,66 @@ export default function Home() {
     setError(null); // Clear any previous errors
     
     try {
-      console.log("Generating image with prompt:", prompt);
+      console.log("Generating images with prompt:", prompt);
       
-      // Just try to generate a single image with a simplified approach
-      const result = await fal.subscribe('fal-ai/fast-sdxl', {
-        input: {
-          prompt: `${prompt}`,
-          negative_prompt: 'low quality, blurry, distorted, deformed',
-          image_size: 'square_hd', 
-          num_inference_steps: 25
+      // Generate 4 images in parallel
+      const imagePromises = Array(4).fill(null).map(async (_, index) => {
+        try {
+          console.log(`Starting generation for image ${index + 1}`);
+          
+          const result = await fal.subscribe('fal-ai/fast-sdxl', {
+            input: {
+              prompt: `${prompt} - photorealistic, 8k resolution, cinematic lighting`,
+              negative_prompt: 'low quality, blurry, distorted, deformed',
+              image_size: 'square_hd',
+              num_inference_steps: 25
+            }
+          });
+          
+          console.log(`FAL response for image ${index + 1}:`, result);
+          
+          // Check if we got a valid response
+          if (!result || !result.data) {
+            console.error(`Missing data in FAL response for image ${index + 1}:`, result);
+            throw new Error('Invalid response from image generation API');
+          }
+          
+          // Access the data property which contains the actual response
+          const response = result.data as FastSdxlOutput;
+          
+          // Check if we have images in the response
+          if (!response.images || !response.images[0] || !response.images[0].url) {
+            console.error(`Missing image URL in FAL response for image ${index + 1}:`, response);
+            throw new Error('No image URL in response');
+          }
+          
+          return response.images[0].url;
+        } catch (err) {
+          console.error(`Error generating image ${index + 1}:`, err);
+          throw err; // Re-throw to be caught by Promise.allSettled
         }
       });
       
-      console.log("FAL response received:", result);
+      // Wait for all images to be generated, handling individual failures
+      const results = await Promise.allSettled(imagePromises);
+      console.log("Generation results:", results);
       
-      // Check if we got a valid response
-      if (!result || !result.data) {
-        throw new Error('Invalid response from image generation API');
-      }
+      // Filter only successful results
+      const successfulImages = results
+        .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
+        .map(result => result.value);
       
-      // Access the data property which contains the actual response
-      const response = result.data as FastSdxlOutput;
+      console.log("Successfully generated images:", successfulImages);
       
-      // Check if we have an image URL in the response
-      if (!response.images || !response.images[0] || !response.images[0].url) {
-        throw new Error('No image URL in response');
-      }
-      
-      // Set the successful image
-      setImages([response.images[0].url]);
-      
-    } catch (error) {
-      console.error('Error generating image:', error);
-      
-      // Provide a more detailed error message
-      if (error instanceof Error) {
-        if (error.message.includes('network') || error.message.includes('fetch')) {
-          setError("Network error connecting to the image generation service. Please check your internet connection and try again.");
-        } else if (error.message.includes('timeout')) {
-          setError("Request timed out. The image generation service might be busy. Please try again later.");
-        } else if (error.message.includes('401') || error.message.includes('auth')) {
-          setError("Authentication error with the image service. Please check your API key configuration.");
-        } else {
-          setError(`Error: ${error.message}`);
-        }
+      // If we have at least one image, show it
+      if (successfulImages.length > 0) {
+        setImages(successfulImages);
       } else {
-        setError("Failed to generate image. Please try again later.");
+        throw new Error("Failed to generate any images. Please try again.");
       }
+    } catch (error) {
+      console.error('Error generating images:', error);
+      setError(error instanceof Error ? error.message : "Failed to generate images. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -121,30 +106,12 @@ export default function Home() {
       
       <main className="flex-grow container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {apiStatus === 'error' && (
-            <div className="p-4 mb-4 bg-red-500 bg-opacity-75 rounded-lg text-white">
-              <h3 className="font-bold mb-2">API Connection Issue</h3>
-              <p>There seems to be a problem connecting to the image generation service. This could be due to:</p>
-              <ul className="list-disc pl-5 mt-2">
-                <li>Missing or invalid API key</li>
-                <li>Network connectivity issues</li>
-                <li>Service may be temporarily unavailable</li>
-              </ul>
-              <button 
-                onClick={checkApiConnection}
-                className="mt-3 bg-white text-red-600 px-4 py-2 rounded-md font-semibold hover:bg-red-100 transition-colors"
-              >
-                Retry Connection
-              </button>
-            </div>
-          )}
-          
           <ImagePromptInput onSubmit={handlePromptSubmit} />
           
           <div className="mt-8">
             {isGenerating && (
               <div className="text-center mb-6">
-                <p className="text-lg text-gray-100">Generating your image...</p>
+                <p className="text-lg text-gray-100">Generating your images...</p>
                 <LoadingIndicator />
               </div>
             )}
