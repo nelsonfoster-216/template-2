@@ -9,6 +9,7 @@ import LoadingIndicator from '@/components/LoadingIndicator';
 import InfoButton from '@/components/InfoButton';
 import AboutSection from '@/components/AboutSection';
 import FalApiDebugger from '@/components/FalApiDebugger';
+import ApiDiagnostic from '@/components/ApiDiagnostic';
 
 // Configure FAL client with the proxy URL
 fal.config({
@@ -166,6 +167,7 @@ export default function Home() {
               {/* Add the debugger component when there's an API error */}
               <div className="mt-5">
                 <FalApiDebugger />
+                <ApiDiagnostic />
               </div>
             </div>
           )}
