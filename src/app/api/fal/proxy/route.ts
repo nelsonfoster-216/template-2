@@ -7,10 +7,6 @@ const FAL_KEY = process.env.FAL_KEY;
 // Check if the API key is available
 if (!FAL_KEY) {
   console.error('FAL_KEY environment variable is not set');
-} else {
-  console.log('FAL_KEY is set with length:', FAL_KEY.length);
-  // Log the first few characters for debugging (but not the whole key for security)
-  console.log('FAL_KEY starts with:', FAL_KEY.substring(0, 4) + '...');
 }
 
 // Enable debugging to see what's happening with the requests
