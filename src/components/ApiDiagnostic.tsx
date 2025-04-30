@@ -114,8 +114,8 @@ export default function ApiDiagnostic() {
                   </div>
                   
                   <div className="flex items-center">
-                    <div className={`w-4 h-4 rounded-full mr-2 ${!keyFormatResult.hasKeyPrefix ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span>Has &quot;Key &quot; Prefix: {keyFormatResult.hasKeyPrefix ? 'Yes (problem)' : 'No (good)'}</span>
+                    <div className={`w-4 h-4 rounded-full mr-2 ${keyFormatResult.hasKeyPrefix ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span>Has &quot;Key &quot; Prefix: {keyFormatResult.hasKeyPrefix ? 'Yes (good)' : 'No (problem)'}</span>
                   </div>
                   
                   <div className="flex items-center">
