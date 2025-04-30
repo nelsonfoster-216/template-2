@@ -1,30 +1,23 @@
 import { route } from '@fal-ai/server-proxy/nextjs';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Get FAL API key from environment variable and clean/format it properly
-let FAL_KEY = process.env.FAL_KEY;
+// Get FAL API key from environment variable
+const FAL_KEY = process.env.FAL_KEY;
 
-// Clean up the API key if it exists
-if (FAL_KEY) {
-  // Remove any quotes or extra whitespace
-  FAL_KEY = FAL_KEY.trim().replace(/^['"]|['"]$/g, '');
-  
-  // Add "Key " prefix if it doesn't already have it
-  if (!FAL_KEY.startsWith('Key ')) {
-    FAL_KEY = `Key ${FAL_KEY}`;
-  }
-  
-  console.log('FAL_KEY properly formatted with length:', FAL_KEY.length);
-  console.log('FAL_KEY starts with:', FAL_KEY.substring(0, 8) + '...');
-} else {
+// Check if the API key is available
+if (!FAL_KEY) {
   console.error('FAL_KEY environment variable is not set');
+} else {
+  console.log('FAL_KEY is set with length:', FAL_KEY.length);
+  // Log the first few characters for debugging (but not the whole key for security)
+  console.log('FAL_KEY starts with:', FAL_KEY.substring(0, 4) + '...');
 }
-
-// Update process.env with the properly formatted key
-process.env.FAL_KEY = FAL_KEY;
 
 // Enable debugging to see what's happening with the requests
 const DEBUG = true;
+
+// Setup the FAL server proxy with credentials
+process.env.FAL_KEY = FAL_KEY; // The library reads this from process.env
 
 // Define direct IP addresses for FAL.AI as a fallback (using Cloudflare DNS for fallback)
 const FAL_API_FALLBACK = {
@@ -41,19 +34,13 @@ async function callFalApiDirectly(targetUrl: string, method: string, body?: any,
     // Convert gateway.fal.ai URLs to direct IP addresses
     const directUrl = targetUrl.replace('gateway.fal.ai', FAL_API_FALLBACK.hostname);
     
-    // Construct headers with FAL key - ensure it's properly formatted
+    // Construct headers with FAL key
     const requestHeaders = {
       'Content-Type': 'application/json',
-      'Authorization': FAL_KEY && FAL_KEY.trim().startsWith('Key ') ? FAL_KEY.trim() : `Key ${FAL_KEY?.trim()}`,
+      'Authorization': `Key ${FAL_KEY}`,
       'Host': 'gateway.fal.ai', // Set the Host header to the original hostname
       ...headers
     };
-    
-    console.log('Using headers:', {
-      'Content-Type': requestHeaders['Content-Type'],
-      'Authorization': requestHeaders['Authorization'] ? 'Set (starts with: ' + requestHeaders['Authorization'].substring(0, 8) + '...)' : 'Not set',
-      'Host': requestHeaders['Host']
-    });
     
     // Make the fetch request
     const response = await fetch(directUrl, {
