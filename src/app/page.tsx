@@ -14,6 +14,9 @@ import ApiDiagnostic from '@/components/ApiDiagnostic';
 // Configure FAL client with the proxy URL
 fal.config({
   proxyUrl: '/api/fal/proxy',
+  // Ensure we're passing credentials correctly
+  credentials: 'same-origin',
+  // The timeout isn't supported in the type definitions, so we remove it
 });
 
 // Define the type for FastSdxl output based on the API documentation
