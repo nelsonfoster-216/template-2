@@ -12,7 +12,7 @@ const HTTP_STATUS = {
 };
 
 // DNS fallback configuration - direct IP addresses for FAL.AI API
-const FALLBACK_IPS: Record<string, string[]> = {
+const FALLBACK_IPS = {
   // Cloudflare DNS for gateway.fal.ai
   'gateway.fal.ai': ['104.18.6.192', '104.18.7.192']
 };
@@ -100,7 +100,6 @@ function validateTargetUrl(request: NextRequest) {
   
   // Check if target URL is provided
   if (!targetUrl) {
-    console.error('Missing x-fal-target-url header');
     return {
       isValid: false,
       response: NextResponse.json(
@@ -117,7 +116,6 @@ function validateTargetUrl(request: NextRequest) {
     const isDomainValid = validDomains.some(domain => url.hostname.endsWith(domain));
     
     if (!isDomainValid) {
-      console.error(`Invalid target URL domain: ${url.hostname}`);
       return {
         isValid: false,
         response: NextResponse.json(
@@ -126,10 +124,7 @@ function validateTargetUrl(request: NextRequest) {
         )
       };
     }
-    
-    console.log(`Valid target URL: ${targetUrl}`);
   } catch (error) {
-    console.error('Invalid target URL format:', error);
     return {
       isValid: false,
       response: NextResponse.json(
@@ -153,7 +148,6 @@ function validateContentType(request: NextRequest) {
     const contentType = request.headers.get('content-type');
     
     if (contentType && !contentType.includes('application/json')) {
-      console.error(`Invalid content type: ${contentType}`);
       return {
         isValid: false,
         response: NextResponse.json(
@@ -185,10 +179,7 @@ async function forwardRequest(request: NextRequest) {
   
   // Clone the request headers and add authorization
   const headers = new Headers(request.headers);
-  
-  // Make sure the API key doesn't already have the "Key " prefix
-  const cleanApiKey = FAL_KEY?.trim().replace(/^Key\s+/, '');
-  headers.set('authorization', `Key ${cleanApiKey}`);
+  headers.set('authorization', `Key ${FAL_KEY}`);
   
   // Add Host header when using direct IP
   if (FALLBACK_IPS['gateway.fal.ai']?.some(ip => targetUrl.includes(ip))) {
@@ -212,9 +203,7 @@ async function forwardRequest(request: NextRequest) {
     try {
       const body = await request.json();
       options.body = JSON.stringify(body);
-      console.log(`POST request body: ${JSON.stringify(body, null, 2).substring(0, 200)}...`);
     } catch (error) {
-      console.warn('Error parsing request body:', error);
       // If there's no body or it's not valid JSON, continue without it
     }
   }
@@ -240,12 +229,7 @@ async function forwardRequest(request: NextRequest) {
     let responseData;
     try {
       responseData = await response.json();
-      
-      // Log a small portion of the response for debugging
-      const responsePreview = JSON.stringify(responseData).substring(0, 200);
-      console.log(`Response status: ${response.status}, preview: ${responsePreview}...`);
     } catch (error) {
-      console.error('Invalid JSON response:', error);
       responseData = { error: 'Invalid JSON response from target' };
     }
     
@@ -283,7 +267,7 @@ export async function GET(request: NextRequest) {
         console.warn('Error resolving host for ping, continuing with original URL:', error);
       }
       
-      const headers: HeadersInit = { 'authorization': `Key ${FAL_KEY?.trim().replace(/^Key\s+/, '')}` };
+      const headers: HeadersInit = { 'authorization': `Key ${FAL_KEY}` };
       
       // Add Host header when using direct IP
       if (FALLBACK_IPS['gateway.fal.ai']?.some(ip => pingUrl.includes(ip))) {
@@ -334,7 +318,7 @@ export async function POST(request: NextRequest) {
         console.warn('Error resolving host for ping, continuing with original URL:', error);
       }
       
-      const headers: HeadersInit = { 'authorization': `Key ${FAL_KEY?.trim().replace(/^Key\s+/, '')}` };
+      const headers: HeadersInit = { 'authorization': `Key ${FAL_KEY}` };
       
       // Add Host header when using direct IP
       if (FALLBACK_IPS['gateway.fal.ai']?.some(ip => pingUrl.includes(ip))) {
@@ -374,32 +358,18 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Handles OPTIONS requests for CORS
+ * Handles unsupported HTTP methods
  */
 export function OPTIONS(request: NextRequest) {
-  // Create CORS headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-fal-target-url, Authorization',
-    'Allow': 'GET, POST, OPTIONS'
-  };
-  
-  // Return an empty response with CORS headers
-  return new NextResponse(null, {
-    status: HTTP_STATUS.OK,
-    headers
-  });
-}
-
-// Handle other HTTP methods with Method Not Allowed
-export function PUT(request: NextRequest) {
   return new NextResponse(null, {
     status: HTTP_STATUS.METHOD_NOT_ALLOWED,
-    headers: { 'Allow': 'GET, POST, OPTIONS' }
+    headers: {
+      'Allow': 'GET, POST'
+    }
   });
 }
 
-export const DELETE = PUT;
-export const PATCH = PUT;
-export const HEAD = PUT;
+export const PUT = OPTIONS;
+export const DELETE = OPTIONS;
+export const PATCH = OPTIONS;
+export const HEAD = OPTIONS;
