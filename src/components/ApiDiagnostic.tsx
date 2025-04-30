@@ -115,7 +115,7 @@ export default function ApiDiagnostic() {
                   
                   <div className="flex items-center">
                     <div className={`w-4 h-4 rounded-full mr-2 ${keyFormatResult.hasKeyPrefix ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span>Has &quot;Key &quot; Prefix: {keyFormatResult.hasKeyPrefix ? 'Yes (good)' : 'No (problem)'}</span>
+                    <span>Has "Key " Prefix: {keyFormatResult.hasKeyPrefix ? 'Yes (good)' : 'No (problem)'}</span>
                   </div>
                   
                   <div className="flex items-center">
@@ -171,7 +171,7 @@ export default function ApiDiagnostic() {
                 )}
                 {result.tests.dnsResolution !== 'Success' && (
                   <>
-                    <li>Check if the FAL.AI service is accessible from AWS Amplify&apos;s network</li>
+                    <li>Check if the FAL.AI service is accessible from AWS Amplify's network</li>
                     <li>Consider using the direct IP connection approach as a fallback</li>
                   </>
                 )}
