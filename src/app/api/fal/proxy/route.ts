@@ -11,83 +11,12 @@ const HTTP_STATUS = {
   INTERNAL_SERVER_ERROR: 500
 };
 
-// DNS fallback configuration - direct IP addresses for FAL.AI API
-const FALLBACK_IPS = {
-  // Cloudflare DNS for gateway.fal.ai
-  'gateway.fal.ai': ['104.18.6.192', '104.18.7.192']
-};
-
-// Configure Node.js to bypass certificate verification when needed
-if (process.env.NODE_ENV !== 'production') {
-  // Only for development environments
-  try {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    console.log("SSL certificate verification disabled for development");
-  } catch (error) {
-    console.error("Failed to configure TLS settings:", error);
-  }
-}
-
 // Get FAL API key from environment variable
 const FAL_KEY = process.env.FAL_KEY;
 
 // Validate if we have an API key
 if (!FAL_KEY) {
   console.error('FAL_KEY environment variable is not set');
-}
-
-/**
- * Try to resolve a host using fallback IPs if needed
- * @param hostname - The hostname to resolve
- * @returns The resolved URL (using direct IP if standard DNS fails)
- */
-async function resolveHost(url: string): Promise<string> {
-  try {
-    // First, try a standard fetch request to check DNS resolution
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
-    
-    await fetch(url, { 
-      method: 'HEAD',
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeout);
-    return url; // DNS resolution successful, use original URL
-  } catch (error) {
-    // Check if this is a DNS resolution error
-    const isDnsError = 
-      error instanceof Error && 
-      (error.message.includes('ENOTFOUND') || 
-       error.message.includes('getaddrinfo') ||
-       error.message.includes('network'));
-    
-    if (!isDnsError) {
-      // If it's not a DNS error, rethrow
-      throw error;
-    }
-    
-    // Extract the hostname from the URL
-    try {
-      const parsedUrl = new URL(url);
-      const hostname = parsedUrl.hostname;
-      
-      // Check if we have a fallback IP for this hostname
-      if (FALLBACK_IPS[hostname] && FALLBACK_IPS[hostname].length > 0) {
-        // Use the first fallback IP
-        const ip = FALLBACK_IPS[hostname][0];
-        const directUrl = url.replace(hostname, ip);
-        
-        console.log(`DNS resolution failed for ${hostname}. Using direct IP: ${ip}`);
-        return directUrl;
-      }
-    } catch (parseError) {
-      console.error('Error parsing URL for fallback:', parseError);
-    }
-    
-    // If we don't have a fallback or can't parse the URL, return the original
-    return url;
-  }
 }
 
 /**
@@ -167,24 +96,12 @@ function validateContentType(request: NextRequest) {
  * @returns Response from the FAL API
  */
 async function forwardRequest(request: NextRequest) {
-  let targetUrl = request.headers.get('x-fal-target-url')!;
+  const targetUrl = request.headers.get('x-fal-target-url')!;
   const method = request.method;
-  
-  // Try to resolve the host with fallback to direct IP if needed
-  try {
-    targetUrl = await resolveHost(targetUrl);
-  } catch (error) {
-    console.warn('Error resolving host, continuing with original URL:', error);
-  }
   
   // Clone the request headers and add authorization
   const headers = new Headers(request.headers);
   headers.set('authorization', `Key ${FAL_KEY}`);
-  
-  // Add Host header when using direct IP
-  if (FALLBACK_IPS['gateway.fal.ai']?.some(ip => targetUrl.includes(ip))) {
-    headers.set('Host', 'gateway.fal.ai');
-  }
   
   // Remove headers that shouldn't be forwarded
   headers.delete('host');
@@ -209,8 +126,6 @@ async function forwardRequest(request: NextRequest) {
   }
   
   try {
-    console.log(`Making ${method} request to: ${targetUrl}`);
-    
     // Make the request to FAL API
     const response = await fetch(targetUrl, options);
     
@@ -257,32 +172,11 @@ export async function GET(request: NextRequest) {
   // Handle ping test requests
   if (request.nextUrl.searchParams.has('ping')) {
     try {
-      // Try with the standard URL first
-      let pingUrl = 'https://gateway.fal.ai/health';
-      
-      // Resolve the host with fallback if needed
-      try {
-        pingUrl = await resolveHost(pingUrl);
-      } catch (error) {
-        console.warn('Error resolving host for ping, continuing with original URL:', error);
-      }
-      
-      const headers: HeadersInit = { 'authorization': `Key ${FAL_KEY}` };
-      
-      // Add Host header when using direct IP
-      if (FALLBACK_IPS['gateway.fal.ai']?.some(ip => pingUrl.includes(ip))) {
-        headers['Host'] = 'gateway.fal.ai';
-      }
-      
-      const pingResponse = await fetch(pingUrl, {
+      const pingResponse = await fetch('https://gateway.fal.ai/health', {
         method: 'HEAD',
-        headers
+        headers: { 'authorization': `Key ${FAL_KEY}` },
       });
-      
-      return NextResponse.json({ 
-        canReachFalAI: pingResponse.ok,
-        usingDirectIp: pingUrl.includes(FALLBACK_IPS['gateway.fal.ai']?.[0] || '')
-      });
+      return NextResponse.json({ canReachFalAI: pingResponse.ok });
     } catch (error) {
       return NextResponse.json({ 
         canReachFalAI: false, 
@@ -308,32 +202,11 @@ export async function POST(request: NextRequest) {
   // Handle ping test requests
   if (request.nextUrl.searchParams.has('ping')) {
     try {
-      // Try with the standard URL first
-      let pingUrl = 'https://gateway.fal.ai/health';
-      
-      // Resolve the host with fallback if needed
-      try {
-        pingUrl = await resolveHost(pingUrl);
-      } catch (error) {
-        console.warn('Error resolving host for ping, continuing with original URL:', error);
-      }
-      
-      const headers: HeadersInit = { 'authorization': `Key ${FAL_KEY}` };
-      
-      // Add Host header when using direct IP
-      if (FALLBACK_IPS['gateway.fal.ai']?.some(ip => pingUrl.includes(ip))) {
-        headers['Host'] = 'gateway.fal.ai';
-      }
-      
-      const pingResponse = await fetch(pingUrl, {
+      const pingResponse = await fetch('https://gateway.fal.ai/health', {
         method: 'HEAD',
-        headers
+        headers: { 'authorization': `Key ${FAL_KEY}` },
       });
-      
-      return NextResponse.json({ 
-        canReachFalAI: pingResponse.ok,
-        usingDirectIp: pingUrl.includes(FALLBACK_IPS['gateway.fal.ai']?.[0] || '')
-      });
+      return NextResponse.json({ canReachFalAI: pingResponse.ok });
     } catch (error) {
       return NextResponse.json({ 
         canReachFalAI: false, 

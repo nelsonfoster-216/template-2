@@ -61,21 +61,19 @@ export default function FalApiDebugger() {
         mode: 'no-cors' // This is important for CORS issues
       }).then(() => true).catch(() => false);
       
-      // Use our special ping endpoint to test DNS resolution and direct IP fallback
-      const pingResponse = await fetch('/api/fal/proxy?ping=true')
-        .then(r => r.json())
-        .catch(() => ({ canReachFalAI: false, usingDirectIp: false }));
+      // Use our special ping endpoint to test DNS resolution
+      const pingResponse = await fetch('/api/fal/proxy?ping=true').then(r => r.json()).catch(() => ({ canReachFalAI: false }));
       
-      // Check our direct test API endpoint
-      const directTest = await fetch('/api/fal/direct-test')
-        .then(r => r.json())
-        .catch(() => ({ success: false, usingDirectIp: false }));
+      // Check if we can ping the IP directly even if DNS fails
+      const directIpTest = await fetch('/api/fal/proxy/ip-test', {
+        method: 'POST'
+      }).then(r => r.ok).catch(() => false);
       
       setNetworkTestResult({
         canReachGoogle: googleResult,
         canReachFalAi: pingResponse.canReachFalAI,
-        isDnsIssue: !pingResponse.canReachFalAI && (googleResult || pingResponse.usingDirectIp || directTest.usingDirectIp),
-        usingFallback: pingResponse.usingDirectIp || directTest.usingDirectIp
+        isDnsIssue: !pingResponse.canReachFalAI && googleResult, // Can reach internet but not fal.ai
+        usingFallback: directIpTest, // Whether fallback works
       });
     } catch (e) {
       console.error("Network test error:", e);
