@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
     // Check if it contains quotes
     analysis.containsQuotes = /^['"]|['"]$/.test(apiKey);
     
-    // Check if it has the "Key " prefix
+    // Check if it has the "Key " prefix - this should actually be FALSE for a correctly formatted key
+    // since our proxy implementation adds the prefix
     analysis.hasKeyPrefix = apiKey.trim().startsWith('Key ');
     
     // Check if it has extra spaces
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     
     // Generate a suggestion for fixing it in AWS Amplify
     let suggestion = "The FAL_KEY environment variable ";
-    if (analysis.containsQuotes || analysis.hasExtraSpaces || !analysis.hasKeyPrefix) {
+    if (analysis.containsQuotes || analysis.hasExtraSpaces || analysis.hasKeyPrefix) {
       suggestion += "should be updated to fix the following issues:\n";
       
       if (analysis.containsQuotes) 
@@ -44,8 +45,8 @@ export async function GET(request: NextRequest) {
       if (analysis.hasExtraSpaces) 
         suggestion += "- Remove extra spaces at the beginning or end\n";
       
-      if (!analysis.hasKeyPrefix) 
-        suggestion += "- Add the 'Key ' prefix (if not already in the key)\n";
+      if (analysis.hasKeyPrefix) 
+        suggestion += "- Remove the 'Key ' prefix - our proxy adds it automatically\n";
       
       suggestion += "\nIn the AWS Amplify Console, go to Environment Variables and update the FAL_KEY value.";
     } else {
