@@ -34,65 +34,30 @@ export default function Home() {
     
     try {
       console.log("Generating images with prompt:", prompt);
-      
       // Generate 4 images in parallel
-      const imagePromises = Array(4).fill(null).map(async (_, index) => {
-        try {
-          console.log(`Starting generation for image ${index + 1}`);
-          
-          const result = await fal.subscribe('fal-ai/fast-sdxl', {
-            input: {
-              prompt: `${prompt} - photorealistic, 8k resolution, cinematic lighting`,
-              negative_prompt: 'low quality, blurry, distorted, deformed',
-              image_size: 'square_hd',
-              num_inference_steps: 25
-            }
-          });
-          
-          console.log(`FAL response for image ${index + 1}:`, result);
-          
-          // Check if we got a valid response
-          if (!result || !result.data) {
-            console.error(`Missing data in FAL response for image ${index + 1}:`, result);
-            throw new Error('Invalid response from image generation API');
+      const imagePromises = Array(4).fill(null).map(async () => {
+        const result = await fal.subscribe('fal-ai/fast-sdxl', {
+          input: {
+            prompt: `${prompt} - photorealistic, 8k resolution, cinematic lighting`,
+            negative_prompt: 'low quality, blurry, distorted, deformed',
+            image_size: 'square_hd',
+            num_inference_steps: 25
           }
-          
-          // Access the data property which contains the actual response
-          const response = result.data as FastSdxlOutput;
-          
-          // Check if we have images in the response
-          if (!response.images || !response.images[0] || !response.images[0].url) {
-            console.error(`Missing image URL in FAL response for image ${index + 1}:`, response);
-            throw new Error('No image URL in response');
-          }
-          
-          return response.images[0].url;
-        } catch (err) {
-          console.error(`Error generating image ${index + 1}:`, err);
-          throw err; // Re-throw to be caught by Promise.allSettled
-        }
+        });
+        
+        console.log("FAL response:", result);
+        // Access the data property which contains the actual response
+        const response = result.data as FastSdxlOutput;
+        return response.images[0].url;
       });
       
-      // Wait for all images to be generated, handling individual failures
-      const results = await Promise.allSettled(imagePromises);
-      console.log("Generation results:", results);
-      
-      // Filter only successful results
-      const successfulImages = results
-        .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
-        .map(result => result.value);
-      
-      console.log("Successfully generated images:", successfulImages);
-      
-      // If we have at least one image, show it
-      if (successfulImages.length > 0) {
-        setImages(successfulImages);
-      } else {
-        throw new Error("Failed to generate any images. Please try again.");
-      }
+      // Wait for all images to be generated
+      const generatedImages = await Promise.all(imagePromises);
+      console.log("Generated images:", generatedImages);
+      setImages(generatedImages);
     } catch (error) {
       console.error('Error generating images:', error);
-      setError(error instanceof Error ? error.message : "Failed to generate images. Please try again.");
+      setError("Failed to generate images. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -117,8 +82,8 @@ export default function Home() {
             )}
             
             {error && (
-              <div className="text-center mb-6 px-4 py-3 bg-red-500 bg-opacity-75 rounded-lg">
-                <p className="text-lg text-white">{error}</p>
+              <div className="text-center mb-6">
+                <p className="text-lg text-red-400">{error}</p>
               </div>
             )}
             
