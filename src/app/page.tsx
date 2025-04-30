@@ -8,10 +8,14 @@ import ImageGrid from '@/components/ImageGrid';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import InfoButton from '@/components/InfoButton';
 import AboutSection from '@/components/AboutSection';
+import FalApiDebugger from '@/components/FalApiDebugger';
 
 // Configure FAL client with the proxy URL
 fal.config({
   proxyUrl: '/api/fal/proxy',
+  // Ensure we're passing credentials correctly
+  credentials: 'same-origin',
+  // The timeout isn't supported in the type definitions, so we remove it
 });
 
 // Define the type for FastSdxl output based on the API documentation
@@ -37,14 +41,18 @@ export default function Home() {
   const checkApiConnection = async () => {
     setApiStatus('checking');
     try {
-      // Simple fetch to verify the proxy works
-      const response = await fetch('/api/fal/proxy');
+      // Test connection using a simple GET request to verify the proxy works
+      const testRequest = await fetch('/api/fal/proxy', {
+        headers: {
+          'x-fal-target-url': 'https://gateway.fal.ai/health',
+        },
+      });
       
-      if (response.ok) {
+      if (testRequest.ok) {
         console.log('FAL API connection test successful');
         setApiStatus('working');
       } else {
-        const errorText = await response.text();
+        const errorText = await testRequest.text();
         console.error('FAL API connection test failed:', errorText);
         setApiStatus('error');
       }
@@ -63,41 +71,59 @@ export default function Home() {
     try {
       console.log("Generating image with prompt:", prompt);
       
-      // Just try to generate a single image with a simplified approach
-      const result = await fal.subscribe('fal-ai/fast-sdxl', {
-        input: {
-          prompt: `${prompt}`,
-          negative_prompt: 'low quality, blurry, distorted, deformed',
-          image_size: 'square_hd', 
-          num_inference_steps: 25
+      // Try with higher timeout and error handling
+      try {
+        // Just try to generate a single image with a simplified approach
+        const result = await fal.subscribe('fal-ai/fast-sdxl', {
+          input: {
+            prompt: `${prompt}`,
+            negative_prompt: 'low quality, blurry, distorted, deformed',
+            image_size: 'square_hd', 
+            num_inference_steps: 25
+          }
+        });
+        
+        console.log("FAL response received:", result);
+        
+        // Check if we got a valid response
+        if (!result || !result.data) {
+          throw new Error('Invalid response from image generation API');
         }
-      });
-      
-      console.log("FAL response received:", result);
-      
-      // Check if we got a valid response
-      if (!result || !result.data) {
-        throw new Error('Invalid response from image generation API');
+        
+        // Access the data property which contains the actual response
+        const response = result.data as FastSdxlOutput;
+        
+        // Check if we have an image URL in the response
+        if (!response.images || !response.images[0] || !response.images[0].url) {
+          throw new Error('No image URL in response');
+        }
+        
+        // Set the successful image
+        setImages([response.images[0].url]);
+      } catch (error) {
+        // If we get a DNS error, try using an alternative endpoint
+        if (error instanceof Error && 
+            (error.message.includes('ENOTFOUND') || 
+             error.message.includes('network') || 
+             error.message.includes('DNS'))) {
+          
+          console.log("Detected DNS or network issue, updating connection status");
+          setApiStatus('error');
+          throw error; // Re-throw to be caught by the outer catch
+        }
+        
+        throw error; // Re-throw other errors
       }
-      
-      // Access the data property which contains the actual response
-      const response = result.data as FastSdxlOutput;
-      
-      // Check if we have an image URL in the response
-      if (!response.images || !response.images[0] || !response.images[0].url) {
-        throw new Error('No image URL in response');
-      }
-      
-      // Set the successful image
-      setImages([response.images[0].url]);
       
     } catch (error) {
       console.error('Error generating image:', error);
       
       // Provide a more detailed error message
       if (error instanceof Error) {
-        if (error.message.includes('network') || error.message.includes('fetch')) {
-          setError("Network error connecting to the image generation service. Please check your internet connection and try again.");
+        if (error.message.includes('network') || 
+            error.message.includes('fetch') || 
+            error.message.includes('ENOTFOUND')) {
+          setError("Network error connecting to the image generation service. Please check your internet connection or DNS settings. If you're on a corporate network, try using a different internet connection.");
         } else if (error.message.includes('timeout')) {
           setError("Request timed out. The image generation service might be busy. Please try again later.");
         } else if (error.message.includes('401') || error.message.includes('auth')) {
@@ -136,6 +162,11 @@ export default function Home() {
               >
                 Retry Connection
               </button>
+              
+              {/* Add the debugger component when there's an API error */}
+              <div className="mt-5">
+                <FalApiDebugger />
+              </div>
             </div>
           )}
           
