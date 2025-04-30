@@ -43,7 +43,7 @@ export default function InfoButton() {
                 
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                   <h3 className="font-bold mb-2">Simple Explanation:</h3>
-                  <p>Imagine you&apos;re at a restaurant:</p>
+                  <p>Imagine you're at a restaurant:</p>
                   <ul className="list-disc pl-5 space-y-2 mt-2">
                     <li>You (the app) want food (data)</li>
                     <li>The waiter (API) takes your request to the kitchen (server)</li>
@@ -54,7 +54,7 @@ export default function InfoButton() {
                 
                 <p>
                   APIs let different software talk to each other without needing to know how the other works internally.
-                  Just like you don&apos;t need to know how to cook the meal - you just tell the waiter what you want!
+                  Just like you don't need to know how to cook the meal - you just tell the waiter what you want!
                 </p>
                 
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
